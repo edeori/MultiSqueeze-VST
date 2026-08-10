@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/mothproduction/Documents/VSCode/Metamorphosis-VST/build/_deps/juce-src/modules/juce_dsp/frequency/**)"
+    ]
+  }
+}

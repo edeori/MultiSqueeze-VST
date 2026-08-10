@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "referenceCanvas": {
+    "width": 1180,
+    "height": 720,
+    "scale": 1
+  },
+  "raster": [
+    {
+      "file": "Raster/background-v2.png",
+      "size": [1180, 720],
+      "role": "1x material/chassis base plate"
+    },
+    {
+      "file": "Raster/background-v2@2x.png",
+      "size": [2360, 1440],
+      "role": "2x material/chassis base plate"
+    },
+    {
+      "file": "Raster/knob-v2.png",
+      "size": [512, 512],
+      "alpha": true,
+      "role": "1x rotary cap; rotate with the parameter angle"
+    },
+    {
+      "file": "Raster/knob-v2@2x.png",
+      "size": [1024, 1024],
+      "alpha": true,
+      "role": "2x rotary cap; rotate with the parameter angle"
+    }
+  ],
+  "vector": [
+    "Vector/moth-mark.svg",
+    "Vector/chevron-left.svg",
+    "Vector/chevron-right.svg",
+    "Vector/chevron-down.svg",
+    "Vector/plus.svg",
+    "Vector/minus.svg",
+    "Vector/power.svg",
+    "Vector/more-vertical.svg"
+  ],
+  "runtimeDrawn": [
+    "spectrum grid and traces",
+    "band fills and crossover handles",
+    "knob ticks and cyan value arc",
+    "gain-reduction and input/output meter segments",
+    "button states, focus rings and editable value fields",
+    "all text"
+  ]
+}
