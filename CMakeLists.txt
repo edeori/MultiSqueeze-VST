@@ -86,6 +86,8 @@ if(MULTISQUEEZE_BUILD_TESTS)
     juce_add_console_app(MultiSqueezeProcessorTests PRODUCT_NAME "MultiSqueeze Processor Tests")
     target_sources(MultiSqueezeProcessorTests PRIVATE Tests/ProcessorTests.cpp)
     target_link_libraries(MultiSqueezeProcessorTests PRIVATE MultiSqueeze)
+    target_include_directories(MultiSqueezeProcessorTests PRIVATE $<TARGET_PROPERTY:MultiSqueeze,INCLUDE_DIRECTORIES>)
+    target_compile_definitions(MultiSqueezeProcessorTests PRIVATE $<TARGET_PROPERTY:MultiSqueeze,COMPILE_DEFINITIONS>)
     add_test(NAME MultiSqueezeProcessor COMMAND MultiSqueezeProcessorTests)
 endif()
 
