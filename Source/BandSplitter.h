@@ -16,4 +16,7 @@ public:
 
 private:
     std::array<juce::dsp::LinkwitzRileyFilter<float>, MultiSqueezeConstants::maxSplits> filters;
+    std::array<std::array<juce::dsp::LinkwitzRileyFilter<float>, MultiSqueezeConstants::maxSplits>,
+               MultiSqueezeConstants::maxSplits> phaseCompensation;
+    double sampleRate = 44100.0;
 };

@@ -88,15 +88,15 @@ void CompressorBand::process (juce::AudioBuffer<float>& signal,
         {
             const auto rawSample = signal.getSample (channel, sample);
             auto delayedSample = rawSample;
-            if (settings.lookaheadEnabled && channel < maxLookaheadChannels)
+            if (channel < maxLookaheadChannels)
             {
-                delayedSample = lookaheadBuffer.getSample (channel, lookaheadWritePos);
+                if (settings.lookaheadEnabled)
+                    delayedSample = lookaheadBuffer.getSample (channel, lookaheadWritePos);
                 lookaheadBuffer.setSample (channel, lookaheadWritePos, rawSample);
             }
             signal.setSample (channel, sample, delayedSample * totalGain);
         }
-        if (settings.lookaheadEnabled)
-            lookaheadWritePos = (lookaheadWritePos + 1) % lookaheadSamples;
+        lookaheadWritePos = (lookaheadWritePos + 1) % lookaheadSamples;
     }
 
     gainReductionDb = lastReduction;

@@ -4,6 +4,8 @@ MultiSqueeze is a clean, feed-forward multiband compressor built with JUCE 8.
 Its interface follows the Moth Production / SplitFire visual language and lets
 you edit crossover points and per-band gain directly on the spectrum.
 
+MultiSqueeze is free, with no activation, license key or trial period.
+
 ## Features
 
 - 1–16 fully automatable bands with 24 dB/oct Linkwitz–Riley crossovers
@@ -64,3 +66,9 @@ NOTARY_PROFILE="notarytool-profile" \
 Use `./packager.sh --help` for all supported options. Package outputs
 (the ZIP archive, the `.pkg` installer and `SHA256SUMS.txt`) are written to
 `build/Release/`.
+
+## Automated releases
+
+See [release instructions](docs/RELEASE_PIPELINE.md) for macOS/Windows builds,
+versioning and separate manual publication. Windows installs VST3 and standalone;
+AU is macOS-only. External sidechain bus availability depends on the host.

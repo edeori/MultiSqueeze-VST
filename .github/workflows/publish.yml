@@ -1,0 +1,34 @@
+name: Publish installers
+on:
+  workflow_dispatch:
+    inputs:
+      build_selection:
+        description: Which build to publish
+        type: choice
+        default: Latest successful build
+        options:
+          - Latest successful build
+          - Specific build ID
+      build_run_id:
+        description: Only for Specific build ID; leave empty for latest successful default-branch build
+        required: false
+        type: string
+      verify_only:
+        description: Check the build and files without uploading
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  publish:
+    uses: edeori/vst-release-pipeline/.github/workflows/vst-publish.yml@275074e82a6dcf0ee54ee2810008eedb3d8a7267
+    with:
+      product-id: multisqueeze
+      build-selection: ${{ inputs.build_selection == 'Specific build ID' && 'specific' || 'latest' }}
+      build-run-id: ${{ inputs.build_run_id }}
+      verify-only: ${{ inputs.verify_only }}
+    secrets:
+      REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+      MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+      MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}

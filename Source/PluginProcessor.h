@@ -21,6 +21,7 @@ public:
     bool isBusesLayoutSupported (const BusesLayout&) const override;
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
+    void processBlockBypassed (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return JucePlugin_Name; }
@@ -58,10 +59,12 @@ private:
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     int getActiveSplits (std::array<ActiveSplit, MultiSqueezeConstants::maxSplits>&) const noexcept;
 
+    void processAudio (juce::AudioBuffer<float>&, bool hostBypassed);
     BandSplitter splitter;
     std::array<juce::AudioBuffer<float>, MultiSqueezeConstants::maxBands> bandBuffers;
     std::array<CompressorBand, MultiSqueezeConstants::maxBands> compressors;
-    juce::AudioBuffer<float> inputScratch;
+    juce::AudioBuffer<float> inputScratch, bypassDelay;
+    int bypassWritePosition = 0;
     SpectrumFifo inputSpectrum, outputSpectrum;
 
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxSplits> splitActiveParams {};

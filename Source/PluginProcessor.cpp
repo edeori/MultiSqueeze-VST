@@ -129,6 +129,9 @@ void MultiSqueezeAudioProcessor::prepareToPlay (double sampleRate, int samplesPe
         compressor.prepare (sampleRate);
 
     lookaheadLatencySamples = juce::jmax (1, (int) std::round (0.001 * MultiSqueezeConstants::lookaheadMs * sampleRate));
+    bypassDelay.setSize (channels, lookaheadLatencySamples);
+    bypassDelay.clear();
+    bypassWritePosition = 0;
     lastLookaheadEnabled = lookaheadParam->load() >= 0.5f;
     setLatencySamples (lastLookaheadEnabled ? lookaheadLatencySamples : 0);
 }
@@ -185,6 +188,8 @@ void MultiSqueezeAudioProcessor::setBandUpperFrequency (int band, float frequenc
     const auto maximum = band == count - 1 ? MultiSqueezeConstants::maxFrequencyHz : splits[(size_t) band + 1].frequency / 1.01f;
     if (auto* parameter = apvts.getParameter (ParamIDs::splitFrequency (splits[(size_t) band].parameterSlot)))
     {
+        if (minimum > maximum)
+            return; // Coincident automated splits leave no editable gap.
         const auto value = juce::jlimit (minimum, maximum, frequencyHz);
         parameter->beginChangeGesture();
         parameter->setValueNotifyingHost (apvts.getParameterRange (parameter->getParameterID()).convertTo0to1 (value));
@@ -263,6 +268,16 @@ float MultiSqueezeAudioProcessor::getAutoMakeupDb (int band) const noexcept
 
 void MultiSqueezeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
+    processAudio (buffer, false);
+}
+
+void MultiSqueezeAudioProcessor::processBlockBypassed (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
+{
+    processAudio (buffer, true);
+}
+
+void MultiSqueezeAudioProcessor::processAudio (juce::AudioBuffer<float>& buffer, bool hostBypassed)
+{
     juce::ScopedNoDenormals noDenormals;
     auto mainInput = getBusBuffer (buffer, true, 0);
     auto mainOutput = getBusBuffer (buffer, false, 0);
@@ -284,10 +299,23 @@ void MultiSqueezeAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (int sample = 0; sample < samples; ++sample)
         inputSpectrum.push (inputScratch.getSample (0, sample));
 
-    if (bypassParam->load() >= 0.5f)
+    const bool bypassed = hostBypassed || bypassParam->load() >= 0.5f;
+    // Keep dry delay history current even while active; bypass must retain
+    // exactly the latency announced to the host.
+    for (int sample = 0; sample < samples; ++sample)
     {
         for (int channel = 0; channel < channels; ++channel)
-            mainOutput.copyFrom (channel, 0, inputScratch, juce::jmin (channel, inputScratch.getNumChannels() - 1), 0, samples);
+        {
+            const auto raw = inputScratch.getSample (channel, sample);
+            const auto delayed = bypassDelay.getSample (channel, bypassWritePosition);
+            bypassDelay.setSample (channel, bypassWritePosition, raw);
+            if (bypassed)
+                mainOutput.setSample (channel, sample, lookaheadEnabled ? delayed : raw);
+        }
+        bypassWritePosition = (bypassWritePosition + 1) % lookaheadLatencySamples;
+    }
+    if (bypassed)
+    {
         for (int sample = 0; sample < samples; ++sample)
             outputSpectrum.push (mainOutput.getSample (0, sample));
         return;

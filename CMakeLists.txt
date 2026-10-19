@@ -50,15 +50,7 @@ juce_add_plugin(MultiSqueeze
     AU_MAIN_TYPE kAudioUnitType_Effect
 )
 
-# Lay artefacts out as build/<FORMAT>/... instead of the JUCE default of
-# build/MultiSqueeze_artefacts/<CONFIG>/<FORMAT>/..., so each format's build
-# result lands directly under a top-level Standalone/VST3/AU folder.
-set_target_properties(MultiSqueeze PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-)
-
+# Keep JUCE default output paths for consistent single/multi-config builds.
 target_sources(MultiSqueeze PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
@@ -87,10 +79,14 @@ option(MULTISQUEEZE_BUILD_TESTS "Build DSP unit tests" ON)
 if(MULTISQUEEZE_BUILD_TESTS)
     enable_testing()
     juce_add_console_app(MultiSqueezeTests PRODUCT_NAME "MultiSqueeze Tests")
-    target_sources(MultiSqueezeTests PRIVATE Tests/DspTests.cpp Source/CompressorBand.cpp)
+    target_sources(MultiSqueezeTests PRIVATE Tests/DspTests.cpp Source/CompressorBand.cpp Source/BandSplitter.cpp)
     target_link_libraries(MultiSqueezeTests PRIVATE juce::juce_dsp juce::juce_audio_basics
                           PUBLIC juce::juce_recommended_config_flags)
     add_test(NAME MultiSqueezeDSP COMMAND MultiSqueezeTests)
+    juce_add_console_app(MultiSqueezeProcessorTests PRODUCT_NAME "MultiSqueeze Processor Tests")
+    target_sources(MultiSqueezeProcessorTests PRIVATE Tests/ProcessorTests.cpp)
+    target_link_libraries(MultiSqueezeProcessorTests PRIVATE MultiSqueeze)
+    add_test(NAME MultiSqueezeProcessor COMMAND MultiSqueezeProcessorTests)
 endif()
 
 option(MULTISQUEEZE_LAYOUT_TUNER "Enable the interactive JUCE UI layout tuner" OFF)

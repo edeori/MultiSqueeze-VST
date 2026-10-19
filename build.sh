@@ -38,14 +38,18 @@ fi
 
 echo "==> Building VST3, AU, Standalone and tests"
 cmake --build "$BUILD_DIR" --config "$CONFIG" \
-    --target MultiSqueeze_VST3 MultiSqueeze_AU MultiSqueeze_Standalone MultiSqueezeTests \
+    --target MultiSqueeze_VST3 MultiSqueeze_AU MultiSqueeze_Standalone MultiSqueezeTests MultiSqueezeProcessorTests \
     --parallel "$jobs"
 
 echo "==> Running DSP tests"
 ctest --test-dir "$BUILD_DIR" -C "$CONFIG" --output-on-failure
 
-# CMakeLists.txt pins the plugin's output directories to $BUILD_DIR, so each
-# format's build result lands directly under build/<FORMAT>/.
+# Copy JUCE's format outputs to the documented packaging paths.
+ARTEFACTS="$BUILD_DIR/MultiSqueeze_artefacts/$CONFIG"
+for format in VST3 AU Standalone; do
+    mkdir -p "$BUILD_DIR/$format"
+    ditto "$ARTEFACTS/$format" "$BUILD_DIR/$format"
+done
 VST3="$BUILD_DIR/VST3/MultiSqueeze.vst3"
 AU="$BUILD_DIR/AU/MultiSqueeze.component"
 APP="$BUILD_DIR/Standalone/MultiSqueeze.app"

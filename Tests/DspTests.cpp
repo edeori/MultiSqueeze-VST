@@ -1,4 +1,5 @@
 #include "../Source/CompressorBand.h"
+#include "../Source/BandSplitter.h"
 #include "../Source/Parameters.h"
 #include <juce_core/juce_core.h>
 #include <cmath>
@@ -493,8 +494,47 @@ namespace
     }
 }
 
+void testCrossoverSum()
+{
+    for (double rate : {22050.0, 48000.0, 96000.0})
+        for (int splits : {2, 7, 15})
+            for (double frequency : {70.0, 300.0, 1500.0, 6000.0})
+            {
+                BandSplitter splitter; splitter.prepare({rate, 256, 1});
+                std::array<float, MultiSqueezeConstants::maxSplits> edges{};
+                for (int i=0;i<splits;++i) edges[(size_t)i]=80.0f*std::pow(19000.0f/80.0f,(float)i/(float)(splits-1));
+                std::array<juce::AudioBuffer<float>, MultiSqueezeConstants::maxBands> bands;
+                juce::AudioBuffer<float> input(1,256);
+                double energy=0, reference=0;
+                for(int block=0;block<160;++block)
+                {
+                    for(int i=0;i<256;++i) input.setSample(0,i,(float)std::sin(2.0*juce::MathConstants<double>::pi*frequency*(block*256+i)/rate));
+                    splitter.process(juce::dsp::AudioBlock<const float>(input),edges,splits,bands);
+                    if(block>80) for(int i=0;i<256;++i)
+                    {
+                        double sum=0; for(int b=0;b<=splits;++b) sum+=bands[(size_t)b].getSample(0,i);
+                        energy+=sum*sum; reference+=std::pow(input.getSample(0,i),2);
+                    }
+                }
+                check(std::isfinite(energy) && std::abs(10.0*std::log10(energy/reference)) < 0.1,
+                      "crossover sum flat within 0.1 dB across rates and band counts");
+            }
+}
+
+void testLookaheadHistory()
+{
+    CompressorBand compressor; compressor.prepare(sampleRate);
+    CompressorBand::Settings settings; settings.bypassed=true;
+    feedConstant(compressor,settings,0.25f,1000);
+    settings.lookaheadEnabled=true;
+    auto output=probeConstant(compressor,settings,0.25f,1);
+    check(closeEnough(output.getSample(0,0),0.25f), "enabling lookahead uses current history, not stale audio");
+}
+
 int main()
 {
+    testCrossoverSum();
+    testLookaheadHistory();
     testBypassPassesThrough();
     testBelowKneeNoReduction();
     testAboveKneeMatchesStandardRatioFormula();
