@@ -76,3 +76,12 @@ win: c3bdb1a46b9620ce8de81cc74a93f0bf9f84d79adc49c7f725de48f1231ed1ef
 The initial 0.1.11 integration attempt was not published. It exposed missing
 signing identity variables and a processor-test include-path setup issue; both
 were corrected before the successful 0.1.12 build.
+
+## Verified installer build — 2026-11-26
+
+Version **0.1.14** adds sidechain detection from other active crossover bands.
+The [installer build](https://github.com/edeori/MultiSqueeze-VST/actions/runs/45790904527)
+compiled commit `1f27ff1a9e100fa8f2aee7fc3a8185843a338d83` on macOS 15 and Windows.
+Both platforms passed the DSP and processor tests. Mac signing and notarization
+and the Windows Defender check succeeded. The [publication check](https://github.com/edeori/MultiSqueeze-VST/actions/runs/45792538721)
+verified both installers with the upload step skipped.
