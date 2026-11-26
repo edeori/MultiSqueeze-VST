@@ -34,6 +34,7 @@ namespace ParamIDs
     inline juce::String gain (int i) { return "gain" + juce::String (i); }
     inline juce::String autoGain (int i) { return "autoGain" + juce::String (i); }
     inline juce::String sidechain (int i) { return "sidechain" + juce::String (i); }
+    inline juce::String detectorBand (int i) { return "detectorBand" + juce::String (i); }
     inline juce::String compressorBypass (int i) { return "compressorBypass" + juce::String (i); }
     inline juce::String solo (int i) { return "solo" + juce::String (i); }
     inline juce::String mute (int i) { return "mute" + juce::String (i); }

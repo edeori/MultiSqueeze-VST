@@ -111,8 +111,28 @@ MultiSqueezeAudioProcessorEditor::MultiSqueezeAudioProcessorEditor (MultiSqueeze
 
     styleCaption (detectorLabel, "Detector input");
     addAndMakeVisible (detectorLabel);
-    sidechainBox.addItemList ({ "Internal", "Sidechain 1", "Sidechain 2", "Sidechain 3", "Sidechain 4" }, 1);
-    sidechainBox.setTooltip ("Each band may use its own external sidechain bus");
+    sidechainBox.setTooltip ("Use this band, another active band, or an external sidechain as the detector.");
+    sidechainBox.onChange = [this]
+    {
+        const int id = sidechainBox.getSelectedId();
+        const int source = id - 1 - MultiSqueezeConstants::numSidechainBuses;
+        if (attachedBand != audioProcessor.getSelectedBand() || id <= 0 || source > audioProcessor.getNumBands())
+            return;
+        auto set = [this] (const juce::String& parameterID, int value)
+        {
+            auto* parameter = audioProcessor.apvts.getParameter (parameterID);
+            const auto normalised = parameter->convertTo0to1 ((float) value);
+            if (parameter->getValue() != normalised)
+            {
+                parameter->beginChangeGesture();
+                parameter->setValueNotifyingHost (normalised);
+                parameter->endChangeGesture();
+            }
+        };
+        if (source <= 0)
+            set (ParamIDs::sidechain (attachedBand), id - 1);
+        set (ParamIDs::detectorBand (attachedBand), juce::jmax (0, source));
+    };
     addAndMakeVisible (sidechainBox);
 
     auto configureEdge = [this] (juce::Label& label)
@@ -161,7 +181,7 @@ MultiSqueezeAudioProcessorEditor::MultiSqueezeAudioProcessorEditor (MultiSqueeze
     addAndMakeVisible (outputSlider);
     outputAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, ParamIDs::output, outputSlider);
 
-    attachSelectedBand();
+    refreshBandReadout();
     setResizable (true, true);
     setResizeLimits (900, 549, 1600, 976);
     if (auto* constrainer = getConstrainer())
@@ -242,7 +262,6 @@ void MultiSqueezeAudioProcessorEditor::attachSelectedBand()
         return;
 
     for (auto& attachment : bandSliderAttachments) attachment.reset();
-    sidechainAttachment.reset();
     compressorBypassAttachment.reset();
     soloAttachment.reset();
     muteAttachment.reset();
@@ -254,7 +273,7 @@ void MultiSqueezeAudioProcessorEditor::attachSelectedBand()
     bandSliderAttachments[3] = std::make_unique<SliderAttachment> (audioProcessor.apvts, ParamIDs::release (band), bandSliders[3]);
     bandSliderAttachments[4] = std::make_unique<SliderAttachment> (audioProcessor.apvts, ParamIDs::gain (band), bandSliders[4]);
     bandSliderAttachments[5] = std::make_unique<SliderAttachment> (audioProcessor.apvts, ParamIDs::knee (band), bandSliders[5]);
-    sidechainAttachment = std::make_unique<ComboAttachment> (audioProcessor.apvts, ParamIDs::sidechain (band), sidechainBox);
+    menuBandCount = 0;
     compressorBypassAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, ParamIDs::compressorBypass (band), compressorBypassButton);
     soloAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, ParamIDs::solo (band), soloButton);
     muteAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, ParamIDs::mute (band), muteButton);
@@ -267,6 +286,26 @@ void MultiSqueezeAudioProcessorEditor::refreshBandReadout()
     attachSelectedBand();
     const auto band = audioProcessor.getSelectedBand();
     const auto count = audioProcessor.getNumBands();
+    constexpr int firstBandId = 2 + MultiSqueezeConstants::numSidechainBuses;
+    if (menuBandCount != count)
+    {
+        sidechainBox.hidePopup();
+        sidechainBox.clear (juce::dontSendNotification);
+        sidechainBox.addItem ("Internal", 1);
+        for (int i = 1; i <= MultiSqueezeConstants::numSidechainBuses; ++i)
+            sidechainBox.addItem ("Sidechain " + juce::String (i), 1 + i);
+        for (int i = 0; i < count; ++i)
+            if (i != band)
+                sidechainBox.addItem ("Band " + juce::String (i + 1), firstBandId + i);
+        menuBandCount = count;
+    }
+    const int source = juce::roundToInt (audioProcessor.apvts.getRawParameterValue (ParamIDs::detectorBand (band))->load());
+    int detectorId = 1;
+    if (source == 0)
+        detectorId += juce::roundToInt (audioProcessor.apvts.getRawParameterValue (ParamIDs::sidechain (band))->load());
+    else if (source <= count && source != band + 1)
+        detectorId = firstBandId + source - 1;
+    sidechainBox.setSelectedId (detectorId, juce::dontSendNotification);
     bandLabel.setText ("BAND " + juce::String (band + 1).paddedLeft ('0', 2) + " / "
                        + juce::String (count).paddedLeft ('0', 2), juce::dontSendNotification);
     rangeLabel.setText (SpectrumAnalyzer::formatFrequency (audioProcessor.getBandLowFrequency (band)) + "  –  "

@@ -48,6 +48,7 @@ MultiSqueezeAudioProcessor::MultiSqueezeAudioProcessor()
         releaseParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::release (i));
         gainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::gain (i));
         autoGainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::autoGain (i));
+        detectorBandParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::detectorBand (i));
         sidechainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::sidechain (i));
         compressorBypassParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::compressorBypass (i));
         soloParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::solo (i));
@@ -99,6 +100,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiSqueezeAudioProcessor::
         layout.add (std::make_unique<juce::AudioParameterBool> (
             juce::ParameterID { ParamIDs::mute (i), 1 }, "Mute" + suffix, false));
     }
+    juce::StringArray bandSources { "Use detector input" };
+    for (int i = 1; i <= MultiSqueezeConstants::maxBands; ++i)
+        bandSources.add ("Band " + juce::String (i));
+    for (int i = 0; i < MultiSqueezeConstants::maxBands; ++i)
+        layout.add (std::make_unique<juce::AudioParameterChoice> (
+            juce::ParameterID { ParamIDs::detectorBand (i), 2 }, "Detector band " + juce::String (i + 1), bandSources, 0));
     return layout;
 }
 
@@ -338,10 +345,11 @@ void MultiSqueezeAudioProcessor::processAudio (juce::AudioBuffer<float>& buffer,
         const auto scChoice = juce::roundToInt (sidechainParams[(size_t) band]->load());
         juce::AudioBuffer<float> sidechainView;
         const juce::AudioBuffer<float>* detector = nullptr;
-        if (scChoice > 0 && scChoice <= MultiSqueezeConstants::numSidechainBuses
-            && getBusCount (true) > scChoice && ! getBus (true, scChoice)->isEnabled())
-            detector = nullptr;
-        else if (scChoice > 0 && scChoice <= MultiSqueezeConstants::numSidechainBuses)
+        const int sourceBand = juce::roundToInt (detectorBandParams[(size_t) band]->load()) - 1;
+        if (sourceBand >= 0 && sourceBand <= numSplits)
+            detector = &bandBuffers[(size_t) sourceBand];
+        else if (sourceBand < 0 && scChoice > 0 && scChoice < getBusCount (true)
+                 && getBus (true, scChoice)->isEnabled())
         {
             sidechainView = getBusBuffer (buffer, true, scChoice);
             if (sidechainView.getNumChannels() > 0)
@@ -358,13 +366,16 @@ void MultiSqueezeAudioProcessor::processAudio (juce::AudioBuffer<float>& buffer,
         settings.autoGainEnabled = autoGainParams[(size_t) band]->load() >= 0.5f;
         settings.lookaheadEnabled = lookaheadEnabled;
         settings.bypassed = compressorBypassParams[(size_t) band]->load() >= 0.5f;
-        compressors[(size_t) band].process (bandBuffers[(size_t) band], detector, settings);
+        // Keep every crossover output intact for bands processed later in this block.
+        for (int channel = 0; channel < channels; ++channel)
+            inputScratch.copyFrom (channel, 0, bandBuffers[(size_t) band], channel, 0, samples);
+        compressors[(size_t) band].process (inputScratch, detector, settings);
 
         const auto shouldMix = muteParams[(size_t) band]->load() < 0.5f
                                && (! anySolo || soloParams[(size_t) band]->load() >= 0.5f);
         if (shouldMix)
             for (int channel = 0; channel < channels; ++channel)
-                mainOutput.addFrom (channel, 0, bandBuffers[(size_t) band], channel, 0, samples);
+                mainOutput.addFrom (channel, 0, inputScratch, channel, 0, samples);
     }
 
     mainOutput.applyGain (juce::Decibels::decibelsToGain (outputParam->load()));

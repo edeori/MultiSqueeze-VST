@@ -41,7 +41,7 @@ public:
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
     int getNumBands() const noexcept;
-    int getSelectedBand() const noexcept { return selectedBand.load(); }
+    int getSelectedBand() const noexcept { return juce::jlimit (0, getNumBands() - 1, selectedBand.load()); }
     void setSelectedBand (int) noexcept;
     bool addBand (float preferredFrequencyHz = 0.0f);
     bool removeSelectedBand();
@@ -76,6 +76,7 @@ private:
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> releaseParams {};
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> gainParams {};
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> autoGainParams {};
+    std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> detectorBandParams {};
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> sidechainParams {};
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> compressorBypassParams {};
     std::array<std::atomic<float>*, MultiSqueezeConstants::maxBands> soloParams {};

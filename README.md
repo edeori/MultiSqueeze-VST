@@ -10,7 +10,7 @@ MultiSqueeze is free, with no activation, license key or trial period.
 
 - 1–16 fully automatable bands with 24 dB/oct Linkwitz–Riley crossovers
 - Per-band threshold, ratio, attack, release, output gain, bypass, solo and mute
-- Internal detection or one of four independent external sidechain buses per band
+- Per-band detector input: the band itself, another active band before compression, or one of four external sidechain buses. Muting or soloing a band leaves its detector feed available. If the chosen band number becomes inactive, detection uses the target band until the source is active again.
 - Typeable numeric fields for every continuous control and crossover edge
 - Double-click the spectrum to add/remove splits; drag splits and gain lines
 - Input/output FFT traces and per-band gain-reduction readout

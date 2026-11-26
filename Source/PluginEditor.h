@@ -23,7 +23,6 @@ public:
 private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
-    using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
     void timerCallback() override;
     void attachSelectedBand();
@@ -52,7 +51,7 @@ private:
     std::array<juce::Slider, 6> bandSliders;
     std::array<juce::Label, 6> bandSliderLabels;
     std::array<std::unique_ptr<SliderAttachment>, 6> bandSliderAttachments;
-    std::unique_ptr<ComboAttachment> sidechainAttachment;
+    int menuBandCount = 0;
     std::unique_ptr<ButtonAttachment> compressorBypassAttachment, soloAttachment, muteAttachment, autoGainAttachment;
 
     juce::Label spectrumTitle, spectrumHint, outputLabel;
