@@ -9,6 +9,7 @@ namespace MultiSqueezeConstants
     inline constexpr int maxBands = 16;
     inline constexpr int maxSplits = maxBands - 1;
     inline constexpr int numSidechainBuses = 4;
+    inline constexpr int maxDawSends = numSidechainBuses + maxBands;
     inline constexpr float minFrequencyHz = 20.0f;
     inline constexpr float maxFrequencyHz = 20000.0f;
 
@@ -34,6 +35,7 @@ namespace ParamIDs
     inline juce::String gain (int i) { return "gain" + juce::String (i); }
     inline juce::String autoGain (int i) { return "autoGain" + juce::String (i); }
     inline juce::String sidechain (int i) { return "sidechain" + juce::String (i); }
+    inline juce::String dawSend (int i) { return "dawSend" + juce::String (i); }
     inline juce::String detectorBand (int i) { return "detectorBand" + juce::String (i); }
     inline juce::String compressorBypass (int i) { return "compressorBypass" + juce::String (i); }
     inline juce::String solo (int i) { return "solo" + juce::String (i); }

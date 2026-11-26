@@ -23,6 +23,9 @@ juce::AudioProcessor::BusesProperties MultiSqueezeAudioProcessor::createBuses()
                     .withOutput ("Output", juce::AudioChannelSet::stereo(), true);
     for (int i = 0; i < MultiSqueezeConstants::numSidechainBuses; ++i)
         buses = buses.withInput ("Sidechain " + juce::String (i + 1), juce::AudioChannelSet::stereo(), false);
+    if (juce::PluginHostType::getPluginLoadedAs() == wrapperType_AudioUnit)
+        for (int i = 0; i < MultiSqueezeConstants::maxBands; ++i)
+            buses = buses.withInput ("Band send " + juce::String (i + 1), juce::AudioChannelSet::stereo(), false);
     return buses;
 }
 
@@ -48,6 +51,7 @@ MultiSqueezeAudioProcessor::MultiSqueezeAudioProcessor()
         releaseParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::release (i));
         gainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::gain (i));
         autoGainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::autoGain (i));
+        dawSendParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::dawSend (i));
         detectorBandParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::detectorBand (i));
         sidechainParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::sidechain (i));
         compressorBypassParams[(size_t) i] = apvts.getRawParameterValue (ParamIDs::compressorBypass (i));
@@ -106,6 +110,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout MultiSqueezeAudioProcessor::
     for (int i = 0; i < MultiSqueezeConstants::maxBands; ++i)
         layout.add (std::make_unique<juce::AudioParameterChoice> (
             juce::ParameterID { ParamIDs::detectorBand (i), 2 }, "Detector band " + juce::String (i + 1), bandSources, 0));
+    for (int i = 0; i < MultiSqueezeConstants::maxBands; ++i)
+        layout.add (std::make_unique<juce::AudioParameterInt> (
+            juce::ParameterID { ParamIDs::dawSend (i), 3 }, "DAW send slot " + juce::String (i + 1),
+            -MultiSqueezeConstants::maxDawSends, MultiSqueezeConstants::maxDawSends, 0,
+            juce::AudioParameterIntAttributes().withAutomatable (false)));
     return layout;
 }
 
@@ -153,6 +162,54 @@ int MultiSqueezeAudioProcessor::getActiveSplits (
     std::sort (result.begin(), result.begin() + count,
                [] (const ActiveSplit& a, const ActiveSplit& b) { return a.frequency < b.frequency; });
     return count;
+}
+
+// Positive slots receive audio. A negative slot stays reserved for its band so
+// disabling a send cannot silently redirect an existing DAW connection.
+MultiSqueezeAudioProcessor::SendMap MultiSqueezeAudioProcessor::getDawSendMap() const noexcept
+{
+    SendMap map {};
+    const int count = getNumBands();
+    for (int band = 0; band < count; ++band)
+    {
+        const int slot = juce::roundToInt (dawSendParams[(size_t) band]->load());
+        if (slot > 0 && slot <= (int) map.size() && map[(size_t) slot - 1] == 0)
+            map[(size_t) slot - 1] = band + 1;
+    }
+    const bool hasBandSend = std::any_of (map.begin(), map.end(), [] (int band) { return band > 0; });
+    // Preserve the four original inputs for sessions using the legacy detector menu.
+    for (int band = 0; band < count; ++band)
+    {
+        const int bus = juce::roundToInt (sidechainParams[(size_t) band]->load());
+        if (bus > 0 && detectorBandParams[(size_t) band]->load() == 0
+            && dawSendParams[(size_t) band]->load() <= 0 && map[(size_t) bus - 1] == 0)
+            map[(size_t) bus - 1] = -1;
+    }
+    if (! hasBandSend)
+        std::fill_n (map.begin(), MultiSqueezeConstants::numSidechainBuses, -1);
+    return map;
+}
+
+void MultiSqueezeAudioProcessor::toggleDawSend (int band)
+{
+    if (band < 0 || band >= getNumBands())
+        return;
+    int slot = -juce::roundToInt (dawSendParams[(size_t) band]->load());
+    if (slot == 0)
+    {
+        std::array<bool, MultiSqueezeConstants::maxDawSends + 1> reserved {};
+        for (auto* parameter : sidechainParams)
+            reserved[(size_t) juce::roundToInt (parameter->load())] = true;
+        for (auto* parameter : dawSendParams)
+            reserved[(size_t) std::abs (juce::roundToInt (parameter->load()))] = true;
+        for (slot = 1; slot <= MultiSqueezeConstants::maxDawSends; ++slot)
+            if (! reserved[(size_t) slot])
+                break;
+    }
+    auto* parameter = apvts.getParameter (ParamIDs::dawSend (band));
+    parameter->beginChangeGesture();
+    parameter->setValueNotifyingHost (parameter->convertTo0to1 ((float) slot));
+    parameter->endChangeGesture();
 }
 
 int MultiSqueezeAudioProcessor::getNumBands() const noexcept
@@ -342,13 +399,17 @@ void MultiSqueezeAudioProcessor::processAudio (juce::AudioBuffer<float>& buffer,
 
     for (int band = 0; band <= numSplits; ++band)
     {
-        const auto scChoice = juce::roundToInt (sidechainParams[(size_t) band]->load());
+        auto scChoice = juce::roundToInt (sidechainParams[(size_t) band]->load());
         juce::AudioBuffer<float> sidechainView;
         const juce::AudioBuffer<float>* detector = nullptr;
         const int sourceBand = juce::roundToInt (detectorBandParams[(size_t) band]->load()) - 1;
-        if (sourceBand >= 0 && sourceBand <= numSplits)
+        const int sendSlot = juce::roundToInt (dawSendParams[(size_t) band]->load());
+        const bool dawSend = wrapperType == wrapperType_AudioUnit && sendSlot > 0;
+        if (dawSend)
+            scChoice = sendSlot;
+        if (! dawSend && sourceBand >= 0 && sourceBand <= numSplits)
             detector = &bandBuffers[(size_t) sourceBand];
-        else if (sourceBand < 0 && scChoice > 0 && scChoice < getBusCount (true)
+        else if ((dawSend || sourceBand < 0) && scChoice > 0 && scChoice < getBusCount (true)
                  && getBus (true, scChoice)->isEnabled())
         {
             sidechainView = getBusBuffer (buffer, true, scChoice);

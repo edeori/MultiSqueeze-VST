@@ -1,0 +1,109 @@
+--- a/juce_audio_plugin_client_AU_1.mm
++++ b/juce_audio_plugin_client_AU_1.mm
+@@ -84,6 +84,7 @@
+  #endif
+ #endif
+ 
++#include "PluginProcessor.h"
+ #include <set>
+ 
+ JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wfour-char-constants")
+@@ -130,7 +131,7 @@
+ class JuceAU final : public AudioProcessorHolder,
+                      public ausdk::MusicDeviceBase,
+                      public AudioProcessorListener,
+-                     public AudioProcessorParameter::Listener
++                     public AudioProcessorParameter::Listener, private Timer
+ {
+     auto& getSupportedBusLayouts (bool isInput, int bus) noexcept
+     {
+@@ -196,10 +197,41 @@
+ 
+         if (syncAudioUnitWithProcessor() != noErr)
+             jassertfalse;
++        startTimerHz (20);
++    }
++
++    MultiSqueezeAudioProcessor& sendProcessor() const
++    {
++        return static_cast<MultiSqueezeAudioProcessor&> (*juceFilter);
++    }
++
++    static UInt32 inputCount (const MultiSqueezeAudioProcessor::SendMap& map)
++    {
++        int slots = (int) map.size();
++        while (slots > 0 && map[(size_t) slots - 1] == 0)
++            --slots;
++        return (UInt32) (1 + slots);
++    }
++
++    MultiSqueezeAudioProcessor::SendMap previousSendMap {};
++    void timerCallback() override
++    {
++        const auto map = sendProcessor().getDawSendMap();
++        if (map == previousSendMap)
++            return;
++        const auto previous = previousSendMap;
++        previousSendMap = map;
++        if (inputCount (map) != inputCount (previous))
++            PropertyChanged (kAudioUnitProperty_ElementCount, kAudioUnitScope_Input, 0);
++        for (size_t slot = 0; slot < map.size(); ++slot)
++            if (previous[slot] != map[slot])
++                PropertyChanged (kAudioUnitProperty_ElementName, kAudioUnitScope_Input,
++                                 (UInt32) (1 + slot));
+     }
+ 
+     ~JuceAU() override
+     {
++        stopTimer();
+         if (bypassParam != nullptr)
+             bypassParam->removeListener (this);
+ 
+@@ -519,6 +551,25 @@
+                                  AudioUnitElement inElement,
+                                  void* outData) override
+     {
++        if (inScope == kAudioUnitScope_Input && inID == kAudioUnitProperty_ElementCount)
++        {
++            *static_cast<UInt32*> (outData) = inputCount (sendProcessor().getDawSendMap());
++            return noErr;
++        }
++        if (inScope == kAudioUnitScope_Input && inID == kAudioUnitProperty_ElementName
++            && inElement > 0)
++        {
++            const auto map = sendProcessor().getDawSendMap();
++            if (inElement >= inputCount (map))
++                return kAudioUnitErr_InvalidElement;
++            const auto band = map[inElement - 1];
++            String name ("Unassigned");
++            if (band > 0) name = "Band " + String (band);
++            if (band < 0) name = "Sidechain " + String ((int) inElement);
++            *static_cast<CFStringRef*> (outData) = name.toCFString();
++            return noErr;
++        }
++
+         if (inScope == kAudioUnitScope_Global)
+         {
+             switch (inID)
+--- a/AU/AudioUnitSDK/AUBase.cpp
++++ b/AU/AudioUnitSDK/AUBase.cpp
+@@ -527,6 +527,10 @@
+ 	}
+ 
+ 	case kAudioUnitProperty_ElementName: {
++		if (inScope == kAudioUnitScope_Input && inElement > 0) {
++			const auto status = GetProperty(inID, inScope, inElement, outData);
++			if (status != kAudioUnitErr_InvalidProperty) return status;
++		}
+ 		const AUElement* const element = GetElement(inScope, inElement);
+ 		const CFStringRef name = *element->GetName();
+ 		AUSDK_Require(name != nullptr, kAudioUnitErr_PropertyNotInUse);
+@@ -536,6 +540,8 @@
+ 	}
+ 
+ 	case kAudioUnitProperty_ElementCount:
++		if (inScope == kAudioUnitScope_Input)
++			return GetProperty(inID, inScope, inElement, outData);
+ 		*static_cast<UInt32*>(outData) = GetScope(inScope).GetNumberOfElements();
+ 		break;
+ 

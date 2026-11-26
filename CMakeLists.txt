@@ -95,3 +95,7 @@ option(MULTISQUEEZE_LAYOUT_TUNER "Enable the interactive JUCE UI layout tuner" O
 if(MULTISQUEEZE_LAYOUT_TUNER)
     target_compile_definitions(MultiSqueeze PRIVATE JUCE_LAYOUT_TUNER=1)
 endif()
+
+if(APPLE)
+    include(cmake/AUBandSends.cmake)
+endif()

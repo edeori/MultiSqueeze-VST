@@ -134,6 +134,16 @@ MultiSqueezeAudioProcessorEditor::MultiSqueezeAudioProcessorEditor (MultiSqueeze
         set (ParamIDs::detectorBand (attachedBand), juce::jmax (0, source));
     };
     addAndMakeVisible (sidechainBox);
+    if (audioProcessor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnit)
+    {
+        addAndMakeVisible (dawSendButton);
+        dawSendButton.setTooltip ("Expose this band as a named sidechain destination in the DAW.");
+        dawSendButton.onClick = [this]
+        {
+            audioProcessor.toggleDawSend (audioProcessor.getSelectedBand());
+            refreshBandReadout();
+        };
+    }
 
     auto configureEdge = [this] (juce::Label& label)
     {
@@ -306,6 +316,14 @@ void MultiSqueezeAudioProcessorEditor::refreshBandReadout()
     else if (source <= count && source != band + 1)
         detectorId = firstBandId + source - 1;
     sidechainBox.setSelectedId (detectorId, juce::dontSendNotification);
+    if (dawSendButton.isVisible())
+    {
+        const bool receiving = audioProcessor.apvts.getRawParameterValue (ParamIDs::dawSend (band))->load() > 0;
+        dawSendButton.setToggleState (receiving, juce::dontSendNotification);
+        sidechainBox.setVisible (! receiving);
+        detectorLabel.setText (receiving ? "DAW SEND: BAND " + juce::String (band + 1) : "DETECTOR INPUT",
+                               juce::dontSendNotification);
+    }
     bandLabel.setText ("BAND " + juce::String (band + 1).paddedLeft ('0', 2) + " / "
                        + juce::String (count).paddedLeft ('0', 2), juce::dontSendNotification);
     rangeLabel.setText (SpectrumAnalyzer::formatFrequency (audioProcessor.getBandLowFrequency (band)) + "  –  "
@@ -435,7 +453,8 @@ void MultiSqueezeAudioProcessorEditor::resized()
     lowEdgeLabel.setBounds (bounds (40.0f, 224.0f, 112.0f, 32.0f));
     highEdgeLabel.setBounds (bounds (160.0f, 224.0f, 112.0f, 32.0f));
     detectorLabel.setBounds (bounds (35.0f, 265.0f, 200.0f, 16.0f));
-    sidechainBox.setBounds (bounds (34.0f, 282.0f, 238.0f, 34.0f));
+    sidechainBox.setBounds (bounds (34.0f, 282.0f, dawSendButton.isVisible() ? 129.0f : 238.0f, 34.0f));
+    dawSendButton.setBounds (bounds (167.0f, 282.0f, 105.0f, 34.0f));
     compressorBypassButton.setBounds (bounds (34.0f, 325.0f, 104.0f, 34.0f));
     soloButton.setBounds (bounds (144.0f, 325.0f, 60.0f, 34.0f));
     muteButton.setBounds (bounds (210.0f, 325.0f, 62.0f, 34.0f));

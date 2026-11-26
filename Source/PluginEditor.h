@@ -47,6 +47,7 @@ private:
     juce::TextButton compressorBypassButton { "COMP BYPASS" }, soloButton { "SOLO" }, muteButton { "MUTE" };
     juce::TextButton autoGainButton { "AUTO GAIN" };
     juce::ComboBox sidechainBox;
+    juce::TextButton dawSendButton { "SIDECHAIN" };
 
     std::array<juce::Slider, 6> bandSliders;
     std::array<juce::Label, 6> bandSliderLabels;

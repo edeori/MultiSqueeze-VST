@@ -97,6 +97,35 @@ int main()
             check (menu->getNumItems() == 7, "removed band disappears from open editor");
         }
     }
+    {
+        juce::AudioProcessor::setTypeOfNextNewPlugin (juce::AudioProcessor::wrapperType_AudioUnit);
+        MultiSqueezeAudioProcessor sends;
+        juce::AudioProcessor::setTypeOfNextNewPlugin (juce::AudioProcessor::wrapperType_Undefined);
+        sends.setSelectedBand (2);
+        std::unique_ptr<juce::AudioProcessorEditor> editor (sends.createEditor());
+        juce::TextButton* toggle = nullptr;
+        for (auto* component : editor->getChildren())
+            if (auto* button = dynamic_cast<juce::TextButton*> (component))
+                if (button->getButtonText() == "SIDECHAIN")
+                    toggle = button;
+        check (toggle != nullptr, "AU has per-band sidechain switch");
+        if (toggle != nullptr)
+        {
+            toggle->onClick();
+            check (toggle->getToggleState() && sends.getDawSendMap()[0] == 3, "switch exposes inspected band");
+            sends.toggleDawSend (0);
+            toggle->onClick();
+            check (sends.getDawSendMap()[0] == 0 && sends.getDawSendMap()[1] == 1,
+                   "disabling a send keeps other host connections stable");
+            juce::MemoryBlock state;
+            sends.getStateInformation (state);
+            MultiSqueezeAudioProcessor recalled;
+            recalled.setStateInformation (state.getData(), (int) state.getSize());
+            recalled.toggleDawSend (2);
+            check (recalled.getDawSendMap()[0] == 3 && recalled.getDawSendMap()[1] == 1,
+                   "recalled sends re-use reserved indices");
+        }
+    }
     MultiSqueezeAudioProcessor processor;
     while (processor.addBand()) {}
     check(processor.getNumBands() == 16, "16 band limit");

@@ -11,6 +11,7 @@ MultiSqueeze is free, with no activation, license key or trial period.
 - 1–16 fully automatable bands with 24 dB/oct Linkwitz–Riley crossovers
 - Per-band threshold, ratio, attack, release, output gain, bypass, solo and mute
 - Per-band detector input: the band itself, another active band before compression, or one of four external sidechain buses. Muting or soloing a band leaves its detector feed available. If the chosen band number becomes inactive, detection uses the target band until the source is active again.
+- In the AU, select a band and enable **Sidechain**. Route a DAW send to **Band N** on that MultiSqueeze instance. Disabling the switch restores the previous detector. Band sends keep their input numbers across preset recall and other band toggles. An unused input below another routed input appears as **Unassigned** because AU input numbers are contiguous. Hosts control when their send menu refreshes and whether it displays AU input names.
 - Typeable numeric fields for every continuous control and crossover edge
 - Double-click the spectrum to add/remove splits; drag splits and gain lines
 - Input/output FFT traces and per-band gain-reduction readout
