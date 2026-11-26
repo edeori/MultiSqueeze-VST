@@ -41,6 +41,7 @@ public:
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "PARAMETERS", createParameterLayout() };
 
     using SendMap = std::array<int, MultiSqueezeConstants::maxDawSends>;
+    const bool usesSharedDawSend = wrapperType == wrapperType_AudioUnit && juce::PluginHostType().isStudioOne();
     SendMap getDawSendMap() const noexcept;
     void toggleDawSend (int band);
     int getNumBands() const noexcept;

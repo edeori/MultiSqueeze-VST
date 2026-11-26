@@ -74,7 +74,8 @@ static OSStatus supply (void* context, AudioUnitRenderActionFlags* flags, const 
 
 int main (int argc, char** argv)
 {
-    require (argc == 2, "expected AU binary path");
+    require (argc == 2 || argc == 3, "expected AU binary path");
+    const bool studioOne = argc == 3 && std::strcmp (argv[2], "--studio-one") == 0;
     auto* binary = dlopen (argv[1], RTLD_NOW | RTLD_LOCAL);
     require (binary != nullptr, "load built AU");
     auto factory = reinterpret_cast<AudioComponentFactoryFunction> (dlsym (binary, "MultiSqueezeAUFactory"));
@@ -83,7 +84,10 @@ int main (int argc, char** argv)
     auto component = AudioComponentRegister (&desc, CFSTR ("MultiSqueeze send test"), 1, factory);
     AudioUnit unit = nullptr;
     require (component && AudioComponentInstanceNew (component, &unit) == noErr, "instantiate AU");
-    require (inputs (unit) == 5 && named (unit, 4, CFSTR ("Sidechain 4")), "legacy inputs");
+    if (studioOne)
+        require (inputs (unit) == 2 && named (unit, 1, CFSTR ("Sidechain 1")), "single host send");
+    else
+        require (inputs (unit) == 5 && named (unit, 4, CFSTR ("Sidechain 4")), "legacy inputs");
     require (AudioUnitInitialize (unit) == noErr, "initialize before changing routes");
 
     int changes = 0;
@@ -91,18 +95,24 @@ int main (int argc, char** argv)
     { ++*static_cast<int*> (context); };
     AudioUnitAddPropertyListener (unit, kAudioUnitProperty_ElementCount, changed, &changes);
     set (unit, "DAW send slot 3", 1);
-    require (inputs (unit) == 2 && named (unit, 1, CFSTR ("Band 3")), "Band 3 as first send");
-    CFRunLoopRunInMode (kCFRunLoopDefaultMode, 0.25, false);
-    require (changes > 0, "host receives live input change");
+    if (! studioOne)
+    {
+        require (inputs (unit) == 2 && named (unit, 1, CFSTR ("Band 3")), "Band 3 as first send");
+        CFRunLoopRunInMode (kCFRunLoopDefaultMode, 0.25, false);
+        require (changes > 0, "host receives live input change");
+    }
 
     set (unit, "DAW send slot 1", 2);
-    require (inputs (unit) == 3 && named (unit, 2, CFSTR ("Band 1")), "independent second send");
+    if (studioOne)
+        require (inputs (unit) == 2, "both bands share the Studio One send");
+    else
+        require (inputs (unit) == 3 && named (unit, 2, CFSTR ("Band 1")), "independent second send");
     float mainLevel = 0.02f, keyLevel = 1.0f;
     AURenderCallbackStruct mainInput { supply, &mainLevel }, key { supply, &keyLevel };
     require (AudioUnitSetProperty (unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input,
                                   0, &mainInput, sizeof (mainInput)) == noErr, "connect main input");
     require (AudioUnitSetProperty (unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input,
-                                  2, &key, sizeof (key)) == noErr, "connect send to Band 1");
+                                  studioOne ? 1 : 2, &key, sizeof (key)) == noErr, "connect send to Band 1");
     set (unit, "Auto gain 1", 0);
 
     struct Stereo { UInt32 count; AudioBuffer channels[2]; };

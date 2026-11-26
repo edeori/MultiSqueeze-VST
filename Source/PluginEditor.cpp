@@ -137,7 +137,9 @@ MultiSqueezeAudioProcessorEditor::MultiSqueezeAudioProcessorEditor (MultiSqueeze
     if (audioProcessor.wrapperType == juce::AudioProcessor::wrapperType_AudioUnit)
     {
         addAndMakeVisible (dawSendButton);
-        dawSendButton.setTooltip ("Expose this band as a named sidechain destination in the DAW.");
+        dawSendButton.setTooltip (audioProcessor.usesSharedDawSend
+            ? "Use the Studio One sidechain send to control this band."
+            : "Expose this band as a named sidechain destination in the DAW.");
         dawSendButton.onClick = [this]
         {
             audioProcessor.toggleDawSend (audioProcessor.getSelectedBand());
@@ -321,7 +323,9 @@ void MultiSqueezeAudioProcessorEditor::refreshBandReadout()
         const bool receiving = audioProcessor.apvts.getRawParameterValue (ParamIDs::dawSend (band))->load() > 0;
         dawSendButton.setToggleState (receiving, juce::dontSendNotification);
         sidechainBox.setVisible (! receiving);
-        detectorLabel.setText (receiving ? "DAW SEND: BAND " + juce::String (band + 1) : "DETECTOR INPUT",
+        const auto sendName = audioProcessor.usesSharedDawSend ? juce::String ("STUDIO ONE SIDECHAIN")
+                                                              : "DAW SEND: BAND " + juce::String (band + 1);
+        detectorLabel.setText (receiving ? sendName : juce::String ("DETECTOR INPUT"),
                                juce::dontSendNotification);
     }
     bandLabel.setText ("BAND " + juce::String (band + 1).paddedLeft ('0', 2) + " / "

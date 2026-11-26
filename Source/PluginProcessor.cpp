@@ -23,7 +23,7 @@ juce::AudioProcessor::BusesProperties MultiSqueezeAudioProcessor::createBuses()
                     .withOutput ("Output", juce::AudioChannelSet::stereo(), true);
     for (int i = 0; i < MultiSqueezeConstants::numSidechainBuses; ++i)
         buses = buses.withInput ("Sidechain " + juce::String (i + 1), juce::AudioChannelSet::stereo(), false);
-    if (juce::PluginHostType::getPluginLoadedAs() == wrapperType_AudioUnit)
+    if (juce::PluginHostType::getPluginLoadedAs() == wrapperType_AudioUnit && ! juce::PluginHostType().isStudioOne())
         for (int i = 0; i < MultiSqueezeConstants::maxBands; ++i)
             buses = buses.withInput ("Band send " + juce::String (i + 1), juce::AudioChannelSet::stereo(), false);
     return buses;
@@ -169,6 +169,11 @@ int MultiSqueezeAudioProcessor::getActiveSplits (
 MultiSqueezeAudioProcessor::SendMap MultiSqueezeAudioProcessor::getDawSendMap() const noexcept
 {
     SendMap map {};
+    if (usesSharedDawSend)
+    {
+        map[0] = -1;
+        return map;
+    }
     const int count = getNumBands();
     for (int band = 0; band < count; ++band)
     {
@@ -406,7 +411,7 @@ void MultiSqueezeAudioProcessor::processAudio (juce::AudioBuffer<float>& buffer,
         const int sendSlot = juce::roundToInt (dawSendParams[(size_t) band]->load());
         const bool dawSend = wrapperType == wrapperType_AudioUnit && sendSlot > 0;
         if (dawSend)
-            scChoice = sendSlot;
+            scChoice = usesSharedDawSend ? 1 : sendSlot;
         if (! dawSend && sourceBand >= 0 && sourceBand <= numSplits)
             detector = &bandBuffers[(size_t) sourceBand];
         else if ((dawSend || sourceBand < 0) && scChoice > 0 && scChoice < getBusCount (true)

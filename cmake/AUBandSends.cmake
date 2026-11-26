@@ -26,5 +26,10 @@ if(MULTISQUEEZE_BUILD_TESTS)
     add_executable(MultiSqueezeAUSendTests Tests/AUSendTests.cpp)
     target_link_libraries(MultiSqueezeAUSendTests PRIVATE "-framework AudioToolbox" "-framework CoreFoundation")
     add_dependencies(MultiSqueezeProcessorTests MultiSqueezeAUSendTests MultiSqueeze_AU)
+    # JUCE selects host-specific behaviour from the host executable path.
+    set(studio_one_host "$<TARGET_FILE_DIR:MultiSqueezeAUSendTests>/Studio One AU Test Host")
+    add_custom_command(TARGET MultiSqueezeAUSendTests POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:MultiSqueezeAUSendTests>" "${studio_one_host}" VERBATIM)
+    add_test(NAME MultiSqueezeAUSharedSend COMMAND "${studio_one_host}" $<TARGET_FILE:MultiSqueeze_AU> --studio-one)
     add_test(NAME MultiSqueezeAUSends COMMAND MultiSqueezeAUSendTests $<TARGET_FILE:MultiSqueeze_AU>)
 endif()
