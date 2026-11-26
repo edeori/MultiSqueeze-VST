@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(MultiSqueeze VERSION 0.1.15)
+project(MultiSqueeze VERSION 0.1.16)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
