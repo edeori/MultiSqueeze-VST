@@ -8,7 +8,7 @@ permissions:
   contents: write
 jobs:
   release:
-    uses: edeori/vst-release-pipeline/.github/workflows/vst-release.yml@275074e82a6dcf0ee54ee2810008eedb3d8a7267
+    uses: edeori/vst-release-pipeline/.github/workflows/vst-release.yml@d4ed918a74af9140e58a1ef0d7d1c7b2defaec6d
     with:
       product-id: multisqueeze
       publish: false

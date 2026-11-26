@@ -22,7 +22,7 @@ permissions:
   actions: read
 jobs:
   publish:
-    uses: edeori/vst-release-pipeline/.github/workflows/vst-publish.yml@275074e82a6dcf0ee54ee2810008eedb3d8a7267
+    uses: edeori/vst-release-pipeline/.github/workflows/vst-publish.yml@d4ed918a74af9140e58a1ef0d7d1c7b2defaec6d
     with:
       product-id: multisqueeze
       build-selection: ${{ inputs.build_selection == 'Specific build ID' && 'specific' || 'latest' }}
